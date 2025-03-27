@@ -29,6 +29,11 @@ const oauth2Client = new google.auth.OAuth2(
 // Create Express server for OAuth flow
 const app = express();
 
+// Add health check endpoint
+app.get("/health", (req, res) => {
+  res.status(200).send("OK");
+});
+
 app.get("/callback", async (req, res) => {
   const { code } = req.query;
   if (!code) {
@@ -74,6 +79,9 @@ const supabase = createClient(
   process.env.SUPABASE_ANON_KEY
 );
 
+// Track conversation state for users
+const userStates = {};
+
 // Initialize WhatsApp client
 const client = new Client();
 
@@ -85,15 +93,60 @@ client.on("ready", () => {
   console.log("WhatsApp Client is ready!");
 });
 
+// Helper function to check if a message is a greeting
+function isGreeting(message) {
+  const greetings = ["hello", "hi", "hey", "hola", "greetings", "howdy", "good morning", "good afternoon", "good evening"];
+  return greetings.some(greeting => message.toLowerCase().includes(greeting));
+}
+
+// Helper function to provide guidance on creating presentations
+function getHelpMessage() {
+  return `Hello! I'm your presentation assistant. 👋
+
+To create a Google Slides presentation, send me a message in this format:
+
+/presentation Your Presentation Title
+Slide 1 content
+Slide 2 content
+Slide 3 content
+
+I'll create the presentation and send you the link when it's ready!`;
+}
+
 // Handle incoming messages
 client.on("message", async (msg) => {
-  if (msg.body.toLowerCase().startsWith("/presentation")) {
+  const userId = msg.from;
+  const messageContent = msg.body.trim();
+  
+  // Initialize user state if not exists
+  if (!userStates[userId]) {
+    userStates[userId] = {
+      awaitingPresentation: false,
+      presentationTitle: null,
+      slides: [],
+    };
+  }
+  
+  // Check for greetings
+  if (isGreeting(messageContent)) {
+    msg.reply(getHelpMessage());
+    return;
+  }
+  
+  // Check for help command
+  if (messageContent.toLowerCase() === "/help") {
+    msg.reply(getHelpMessage());
+    return;
+  }
+  
+  // Handle presentation creation command
+  if (messageContent.toLowerCase().startsWith("/presentation")) {
     try {
       // Store user input in Supabase
       const { data, error } = await supabase.from("presentations").insert([
         {
-          user_id: msg.from,
-          content: msg.body,
+          user_id: userId,
+          content: messageContent,
         },
       ]);
 
@@ -101,17 +154,21 @@ client.on("message", async (msg) => {
         throw new Error("Error storing data in Supabase: " + error.message);
 
       // Generate presentation
-      const presentationLink = await createPresentation(msg.body);
+      const presentationLink = await createPresentation(messageContent);
 
       // Send the link back to the user
       msg.reply(
-        `Your presentation is ready! Here's the link: ${presentationLink}`
+        `Your presentation is ready! Here's the link: ${presentationLink}\n\nYou can create another presentation anytime by sending a new message starting with /presentation.`
       );
     } catch (error) {
-      msg.reply("Sorry, there was an error creating your presentation.");
+      msg.reply("Sorry, there was an error creating your presentation. Please try again or type /help for instructions.");
       console.error(error);
     }
+    return;
   }
+  
+  // If user is in conversation but message doesn't match any command
+  msg.reply("I'm not sure what you're asking. Type /help to see how to create a presentation.");
 });
 
 client.initialize();

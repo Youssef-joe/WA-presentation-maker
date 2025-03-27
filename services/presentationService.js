@@ -107,7 +107,7 @@ async function addSlides(presentationId, presentationData) {
             insertText: {
               objectId: titleElement.objectId,
               insertionIndex: 0,
-              text: `Slide ${index + 1}`,
+              text: presentationData.slides[index].title,
             },
           });
 
@@ -137,10 +137,28 @@ async function addSlides(presentationId, presentationData) {
 
 function parseContent(content) {
   // Parse the message content to extract presentation structure
-  const lines = content.split("\n");
+  const lines = content.split("\n").filter(line => line.trim() !== "");
+  
+  // Extract title from first line
+  const title = lines[0].replace("/presentation", "").trim();
+  
+  // Process remaining lines as slides
+  const slides = [];
+  for (let i = 1; i < lines.length; i++) {
+    const slideContent = lines[i].trim();
+    if (slideContent) {
+      // Create a title from the first few words of the content
+      const slideTitle = slideContent.split(" ").slice(0, 3).join(" ") + "...";
+      slides.push({
+        title: slideTitle,
+        content: slideContent
+      });
+    }
+  }
+  
   return {
-    title: lines[0].replace("/presentation", "").trim(),
-    slides: lines.slice(1).map(line => ({ content: line.trim() })),
+    title: title || "Untitled Presentation",
+    slides: slides.length > 0 ? slides : [{ title: "Slide 1", content: "No content provided" }],
   };
 }
 
