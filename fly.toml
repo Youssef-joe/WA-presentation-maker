@@ -3,7 +3,7 @@ app = "wa-presentation-maker"
 primary_region = "fra"
 
 [build]
-  builder = "heroku/buildpacks:20"
+  builder = "heroku/builder:22"
 
 [env]
   PORT = "8080"
