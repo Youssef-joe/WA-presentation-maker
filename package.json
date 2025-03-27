@@ -1,13 +1,21 @@
 {
-  "name": "new-folder",
+  "name": "wa-presentation-maker",
   "version": "1.0.0",
-  "description": "",
-  "main": "index.js",
+  "description": "WhatsApp bot for creating Google Slides presentations",
+  "main": "app.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
-    "start": "node app.js"
+    "start": "node app.js",
+    "dev": "nodemon app.js"
   },
-  "keywords": [],
+  "engines": {
+    "node": ">=14.0.0"
+  },
+  "keywords": [
+    "whatsapp",
+    "bot",
+    "google-slides",
+    "presentations"
+  ],
   "author": "",
   "license": "ISC",
   "dependencies": {

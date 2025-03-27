@@ -12,7 +12,6 @@ const { auth } = require("./services/presentationService.js");
 
 // Import database models
 const { initializeDatabase } = require('./models/database');
-const { saveChatMessage, getUserChatHistory, clearUserChatHistory } = require('./models/chatModel');
 const { getUserPresentations } = require('./models/presentationModel');
 
 // Ensure required environment variables exist
@@ -64,7 +63,7 @@ app.get("/callback", async (req, res) => {
   }
 });
 
-const PORT = process.env.PORT || 3000;
+const PORT = parseInt(process.env.PORT) || 3000;
 app.listen(PORT, () => {
   console.log(`OAuth server running on port ${PORT}`);
   const authUrl = oauth2Client.generateAuthUrl({
@@ -118,8 +117,7 @@ Slide 3 content
 I'll create the presentation and send you the link when it's ready!
 
 Other commands:
-/history - View your presentation history
-/clear - Clear your chat history`;
+/history - View your presentation history`;
 }
 
 // Handle incoming messages
@@ -137,22 +135,15 @@ client.on("message", async (msg) => {
   }
   
   try {
-    // Save incoming message to database
-    await saveChatMessage(userId, messageContent, true);
-    
     // Check for greetings
     if (isGreeting(messageContent)) {
-      const response = getHelpMessage();
-      await saveChatMessage(userId, response, false);
-      msg.reply(response);
+      msg.reply(getHelpMessage());
       return;
     }
     
     // Check for help command
     if (messageContent.toLowerCase() === "/help") {
-      const response = getHelpMessage();
-      await saveChatMessage(userId, response, false);
-      msg.reply(response);
+      msg.reply(getHelpMessage());
       return;
     }
     
@@ -162,41 +153,33 @@ client.on("message", async (msg) => {
         const presentations = await getUserPresentations(userId);
         
         if (presentations.length === 0) {
-          const response = "You haven't created any presentations yet. Type /help to see how to create one.";
-          await saveChatMessage(userId, response, false);
-          msg.reply(response);
+          msg.reply("You haven't created any presentations yet. Type /help to see how to create one.");
           return;
         }
         
         let historyMessage = "*Your Presentation History:*\n\n";
         presentations.forEach((pres, index) => {
+          // Extract title from content or use a default
+          let title = "Untitled Presentation";
+          try {
+            // Try to parse the content to extract a title
+            const contentLines = pres.content.split('\n');
+            if (contentLines.length > 0) {
+              const firstLine = contentLines[0].replace('/presentation', '').trim();
+              if (firstLine) title = firstLine;
+            }
+          } catch (e) {
+            console.error('Error parsing presentation content:', e);
+          }
+          
           const date = new Date(pres.created_at).toLocaleDateString();
-          historyMessage += `${index + 1}. *${pres.title}* (${date})\n${pres.presentation_url}\n\n`;
+          historyMessage += `${index + 1}. *${title}* (${date})\n${pres.presentation_link}\n\n`;
         });
         
-        await saveChatMessage(userId, historyMessage, false);
         msg.reply(historyMessage);
       } catch (error) {
         console.error('Error fetching presentation history:', error);
-        const response = "Sorry, I couldn't retrieve your presentation history. Please try again later.";
-        await saveChatMessage(userId, response, false);
-        msg.reply(response);
-      }
-      return;
-    }
-    
-    // Check for clear history command
-    if (messageContent.toLowerCase() === "/clear") {
-      try {
-        await clearUserChatHistory(userId);
-        const response = "Your chat history has been cleared.";
-        await saveChatMessage(userId, response, false);
-        msg.reply(response);
-      } catch (error) {
-        console.error('Error clearing chat history:', error);
-        const response = "Sorry, I couldn't clear your chat history. Please try again later.";
-        await saveChatMessage(userId, response, false);
-        msg.reply(response);
+        msg.reply("Sorry, I couldn't retrieve your presentation history. Please try again later.");
       }
       return;
     }
@@ -204,29 +187,23 @@ client.on("message", async (msg) => {
     // Handle presentation creation command
     if (messageContent.toLowerCase().startsWith("/presentation")) {
       try {
-        // Add user ID to the content for database storage
-        const contentWithUserId = { ...messageContent, userId };
+        // Get the user ID from the message
+        const userId = msg.from;
         
-        // Generate presentation
-        const presentationLink = await createPresentation(contentWithUserId);
+        // Generate presentation and pass the user ID for database storage
+        const presentationLink = await createPresentation(messageContent, userId);
         
         // Send the link back to the user
-        const response = `Your presentation is ready! Here's the link: ${presentationLink}\n\nYou can create another presentation anytime by sending a new message starting with /presentation.`;
-        await saveChatMessage(userId, response, false);
-        msg.reply(response);
+        msg.reply(`Your presentation is ready! Here's the link: ${presentationLink}\n\nYou can create another presentation anytime by sending a new message starting with /presentation.`);
       } catch (error) {
-        const errorMsg = "Sorry, there was an error creating your presentation. Please try again or type /help for instructions.";
-        await saveChatMessage(userId, errorMsg, false);
-        msg.reply(errorMsg);
+        msg.reply("Sorry, there was an error creating your presentation. Please try again or type /help for instructions.");
         console.error(error);
       }
       return;
     }
     
     // If user is in conversation but message doesn't match any command
-    const response = "I'm not sure what you're asking. Type /help to see how to create a presentation.";
-    await saveChatMessage(userId, response, false);
-    msg.reply(response);
+    msg.reply("I'm not sure what you're asking. Type /help to see how to create a presentation.");
   } catch (error) {
     console.error('Error handling message:', error);
     msg.reply("Sorry, something went wrong. Please try again later.");

@@ -13,9 +13,9 @@ async function saveChatMessage(userId, message, isIncoming) {
     .insert([
       {
         user_id: userId,
-        message: message,
-        is_incoming: isIncoming,
-        timestamp: new Date().toISOString()
+        title: message, // Using title column to store the message content
+        created_at: new Date().toISOString() // Using created_at for timestamp
+        // is_incoming field is not available in the existing schema
       }
     ])
     .select();
@@ -35,7 +35,7 @@ async function getUserChatHistory(userId, limit = 50) {
     .from('chats')
     .select('*')
     .eq('user_id', userId)
-    .order('timestamp', { ascending: false })
+    .order('created_at', { ascending: false })
     .limit(limit);
 
   if (error) throw new Error(`Error fetching chat history: ${error.message}`);

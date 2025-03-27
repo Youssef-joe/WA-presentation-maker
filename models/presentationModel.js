@@ -15,11 +15,10 @@ async function savePresentation(userId, title, content, presentationId, presenta
     .insert([
       {
         user_id: userId,
-        title: title,
-        content: content,
-        presentation_id: presentationId,
-        presentation_url: presentationUrl,
+        content: content, // Store content as is
+        presentation_link: presentationUrl, // Using presentation_link instead of presentation_url
         created_at: new Date().toISOString()
+        // title and presentation_id fields are not available in the existing schema
       }
     ])
     .select();

@@ -45,7 +45,7 @@ const slides = google.slides({ version: "v1", auth: oauth2Client });
 // Import presentation model
 const { savePresentation } = require('../models/presentationModel');
 
-async function createPresentation(content) {
+async function createPresentation(content, userId = 'unknown') {
   try {
     // Parse content to extract presentation details
     const presentationData = parseContent(content);
@@ -64,16 +64,13 @@ async function createPresentation(content) {
 
     const presentationUrl = `https://docs.google.com/presentation/d/${presentation.data.presentationId}`;
     
-    // Extract user ID from the content (assuming it's passed from the message handler)
-    const userId = content.userId || 'unknown';
-    
     // Save presentation to database
     try {
       await savePresentation(
         userId,
-        presentationData.title,
+        presentationData.title, // This won't be used in the updated model
         content,
-        presentation.data.presentationId,
+        presentation.data.presentationId, // This won't be used in the updated model
         presentationUrl
       );
       console.log('Presentation saved to database');
@@ -159,8 +156,11 @@ async function addSlides(presentationId, presentationData) {
 }
 
 function parseContent(content) {
+  // Check if content is an object (with userId) or a string
+  const messageText = typeof content === 'object' ? content.toString() : content;
+  
   // Parse the message content to extract presentation structure
-  const lines = content.split("\n").filter(line => line.trim() !== "");
+  const lines = messageText.split("\n").filter(line => line.trim() !== "");
   
   // Extract title from first line
   const title = lines[0].replace("/presentation", "").trim();
