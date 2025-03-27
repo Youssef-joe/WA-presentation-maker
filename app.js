@@ -10,6 +10,11 @@ dotenv.config();
 const { createPresentation } = require("./services/presentationService.js");
 const { auth } = require("./services/presentationService.js");
 
+// Import database models
+const { initializeDatabase } = require('./models/database');
+const { saveChatMessage, getUserChatHistory, clearUserChatHistory } = require('./models/chatModel');
+const { getUserPresentations } = require('./models/presentationModel');
+
 // Ensure required environment variables exist
 if (
   !process.env.GOOGLE_CLIENT_ID ||
@@ -74,10 +79,10 @@ if (!process.env.SUPABASE_URL || !process.env.SUPABASE_ANON_KEY) {
   throw new Error("Missing Supabase environment variables.");
 }
 
-const supabase = createClient(
-  process.env.SUPABASE_URL,
-  process.env.SUPABASE_ANON_KEY
-);
+// Initialize database
+initializeDatabase().catch(error => {
+  console.error('Failed to initialize database:', error);
+});
 
 // Track conversation state for users
 const userStates = {};
@@ -110,7 +115,11 @@ Slide 1 content
 Slide 2 content
 Slide 3 content
 
-I'll create the presentation and send you the link when it's ready!`;
+I'll create the presentation and send you the link when it's ready!
+
+Other commands:
+/history - View your presentation history
+/clear - Clear your chat history`;
 }
 
 // Handle incoming messages
@@ -127,48 +136,101 @@ client.on("message", async (msg) => {
     };
   }
   
-  // Check for greetings
-  if (isGreeting(messageContent)) {
-    msg.reply(getHelpMessage());
-    return;
-  }
-  
-  // Check for help command
-  if (messageContent.toLowerCase() === "/help") {
-    msg.reply(getHelpMessage());
-    return;
-  }
-  
-  // Handle presentation creation command
-  if (messageContent.toLowerCase().startsWith("/presentation")) {
-    try {
-      // Store user input in Supabase
-      const { data, error } = await supabase.from("presentations").insert([
-        {
-          user_id: userId,
-          content: messageContent,
-        },
-      ]);
-
-      if (error)
-        throw new Error("Error storing data in Supabase: " + error.message);
-
-      // Generate presentation
-      const presentationLink = await createPresentation(messageContent);
-
-      // Send the link back to the user
-      msg.reply(
-        `Your presentation is ready! Here's the link: ${presentationLink}\n\nYou can create another presentation anytime by sending a new message starting with /presentation.`
-      );
-    } catch (error) {
-      msg.reply("Sorry, there was an error creating your presentation. Please try again or type /help for instructions.");
-      console.error(error);
+  try {
+    // Save incoming message to database
+    await saveChatMessage(userId, messageContent, true);
+    
+    // Check for greetings
+    if (isGreeting(messageContent)) {
+      const response = getHelpMessage();
+      await saveChatMessage(userId, response, false);
+      msg.reply(response);
+      return;
     }
-    return;
+    
+    // Check for help command
+    if (messageContent.toLowerCase() === "/help") {
+      const response = getHelpMessage();
+      await saveChatMessage(userId, response, false);
+      msg.reply(response);
+      return;
+    }
+    
+    // Check for history command
+    if (messageContent.toLowerCase() === "/history") {
+      try {
+        const presentations = await getUserPresentations(userId);
+        
+        if (presentations.length === 0) {
+          const response = "You haven't created any presentations yet. Type /help to see how to create one.";
+          await saveChatMessage(userId, response, false);
+          msg.reply(response);
+          return;
+        }
+        
+        let historyMessage = "*Your Presentation History:*\n\n";
+        presentations.forEach((pres, index) => {
+          const date = new Date(pres.created_at).toLocaleDateString();
+          historyMessage += `${index + 1}. *${pres.title}* (${date})\n${pres.presentation_url}\n\n`;
+        });
+        
+        await saveChatMessage(userId, historyMessage, false);
+        msg.reply(historyMessage);
+      } catch (error) {
+        console.error('Error fetching presentation history:', error);
+        const response = "Sorry, I couldn't retrieve your presentation history. Please try again later.";
+        await saveChatMessage(userId, response, false);
+        msg.reply(response);
+      }
+      return;
+    }
+    
+    // Check for clear history command
+    if (messageContent.toLowerCase() === "/clear") {
+      try {
+        await clearUserChatHistory(userId);
+        const response = "Your chat history has been cleared.";
+        await saveChatMessage(userId, response, false);
+        msg.reply(response);
+      } catch (error) {
+        console.error('Error clearing chat history:', error);
+        const response = "Sorry, I couldn't clear your chat history. Please try again later.";
+        await saveChatMessage(userId, response, false);
+        msg.reply(response);
+      }
+      return;
+    }
+    
+    // Handle presentation creation command
+    if (messageContent.toLowerCase().startsWith("/presentation")) {
+      try {
+        // Add user ID to the content for database storage
+        const contentWithUserId = { ...messageContent, userId };
+        
+        // Generate presentation
+        const presentationLink = await createPresentation(contentWithUserId);
+        
+        // Send the link back to the user
+        const response = `Your presentation is ready! Here's the link: ${presentationLink}\n\nYou can create another presentation anytime by sending a new message starting with /presentation.`;
+        await saveChatMessage(userId, response, false);
+        msg.reply(response);
+      } catch (error) {
+        const errorMsg = "Sorry, there was an error creating your presentation. Please try again or type /help for instructions.";
+        await saveChatMessage(userId, errorMsg, false);
+        msg.reply(errorMsg);
+        console.error(error);
+      }
+      return;
+    }
+    
+    // If user is in conversation but message doesn't match any command
+    const response = "I'm not sure what you're asking. Type /help to see how to create a presentation.";
+    await saveChatMessage(userId, response, false);
+    msg.reply(response);
+  } catch (error) {
+    console.error('Error handling message:', error);
+    msg.reply("Sorry, something went wrong. Please try again later.");
   }
-  
-  // If user is in conversation but message doesn't match any command
-  msg.reply("I'm not sure what you're asking. Type /help to see how to create a presentation.");
 });
 
 client.initialize();

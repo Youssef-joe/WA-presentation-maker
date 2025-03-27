@@ -42,6 +42,9 @@ const auth = {
 // Initialize Google Slides API
 const slides = google.slides({ version: "v1", auth: oauth2Client });
 
+// Import presentation model
+const { savePresentation } = require('../models/presentationModel');
+
 async function createPresentation(content) {
   try {
     // Parse content to extract presentation details
@@ -59,7 +62,27 @@ async function createPresentation(content) {
     // Add slides based on the content
     await addSlides(presentation.data.presentationId, presentationData);
 
-    return `https://docs.google.com/presentation/d/${presentation.data.presentationId}`;
+    const presentationUrl = `https://docs.google.com/presentation/d/${presentation.data.presentationId}`;
+    
+    // Extract user ID from the content (assuming it's passed from the message handler)
+    const userId = content.userId || 'unknown';
+    
+    // Save presentation to database
+    try {
+      await savePresentation(
+        userId,
+        presentationData.title,
+        content,
+        presentation.data.presentationId,
+        presentationUrl
+      );
+      console.log('Presentation saved to database');
+    } catch (dbError) {
+      console.error('Error saving to database:', dbError);
+      // Continue even if database save fails
+    }
+
+    return presentationUrl;
   } catch (error) {
     console.error("Error creating presentation:", error);
     throw new Error("Failed to create presentation.");
