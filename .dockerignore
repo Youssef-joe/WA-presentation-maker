@@ -9,4 +9,6 @@ npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 
+# DO NOT ignore configuration files
 # DO NOT ignore fly.toml
+# DO NOT ignore render.yaml

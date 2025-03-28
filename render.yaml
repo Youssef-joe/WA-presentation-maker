@@ -12,10 +12,16 @@ services:
       - key: GOOGLE_CLIENT_SECRET
         sync: false
       - key: GOOGLE_REDIRECT_URI
-        sync: false
+        value: https://wa-presentation-maker.onrender.com/callback
       - key: GOOGLE_REFRESH_TOKEN
         sync: false
       - key: SUPABASE_URL
         sync: false
       - key: SUPABASE_ANON_KEY
         sync: false
+      - key: PORT
+        value: 8080
+    disk:
+      name: whatsapp-data
+      mountPath: /app/.wwebjs_auth
+      sizeGB: 1
