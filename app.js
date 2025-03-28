@@ -5,6 +5,8 @@ const { createClient } = require("@supabase/supabase-js");
 const { google } = require("googleapis");
 const fs = require("fs");
 const dotenv = require("dotenv");
+const fetch = (...args) =>
+  import("node-fetch").then(({ default: fetch }) => fetch(...args));
 dotenv.config();
 
 const { createPresentation } = require("./services/presentationService.js");
@@ -37,6 +39,18 @@ const app = express();
 app.get("/health", (req, res) => {
   res.status(200).send("OK");
 });
+
+// Add keep-alive mechanism to prevent Render from sleeping
+const PING_INTERVAL = 14 * 60 * 1000; // 14 minutes (just under Render's 15-minute sleep threshold)
+setInterval(() => {
+  const hostname =
+    process.env.RENDER_EXTERNAL_URL || `http://localhost:${PORT}`;
+  fetch(`${hostname}/health`)
+    .then(() =>
+      console.log(`[${new Date().toISOString()}] Keep-alive ping sent`)
+    )
+    .catch((err) => console.error("Keep-alive ping failed:", err));
+}, PING_INTERVAL);
 
 app.get("/callback", async (req, res) => {
   const { code } = req.query;
@@ -99,6 +113,16 @@ client.on("qr", (qr) => {
 
 client.on("ready", () => {
   console.log("WhatsApp Client is ready!");
+});
+
+// Add disconnection and reconnection handling
+client.on("disconnected", (reason) => {
+  console.log(`WhatsApp client disconnected: ${reason}`);
+  console.log("Attempting to reconnect...");
+  // Wait a bit before reconnecting to avoid immediate reconnection attempts
+  setTimeout(() => {
+    client.initialize();
+  }, 5000);
 });
 
 // Helper function to check if a message is a greeting

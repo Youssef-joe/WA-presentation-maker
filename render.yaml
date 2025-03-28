@@ -2,6 +2,7 @@ services:
   - type: web
     name: wa-presentation-maker
     env: node
+    plan: standard # This ensures the service runs 24/7 without sleeping
     buildCommand: npm install
     startCommand: npm start
     envVars:
