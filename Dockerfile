@@ -1,23 +1,22 @@
-FROM ghcr.io/puppeteer/puppeteer:21.5.2
+FROM node:18-alpine
 
+# Set working directory
 WORKDIR /app
 
-# Copy package files and install dependencies
+# Copy package files
 COPY package*.json ./
-RUN npm ci
 
-# Copy the rest of the application
+# Install dependencies
+RUN npm install
+
+# Copy the rest of the application code
 COPY . .
 
-# Set environment variables
-ENV NODE_ENV=production
-ENV PORT=8080
-
-# Create directory for WhatsApp Web.js session data
-RUN mkdir -p /app/.wwebjs_auth
+# Build the application if needed
+RUN npm run build
 
 # Expose the port
 EXPOSE 8080
 
 # Start the application
-CMD ["node", "app.js"]
+CMD ["npm", "start"]
