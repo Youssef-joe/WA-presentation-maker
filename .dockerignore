@@ -1,3 +1,12 @@
-# flyctl launch added from .gitignore
-**\node_modules
-**\.env
+# Dependency directories
+node_modules/
+
+# Environment variables
+.env
+
+# Debug logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# DO NOT ignore fly.toml
