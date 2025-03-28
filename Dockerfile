@@ -12,8 +12,7 @@ RUN npm install
 # Copy the rest of the application code
 COPY . .
 
-# Build the application if needed
-RUN npm run build
+# No build step needed for this Node.js application
 
 # Expose the port
 EXPOSE 8080
