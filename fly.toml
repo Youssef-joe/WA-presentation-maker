@@ -3,7 +3,7 @@ app = 'wa-presentation-maker-misty-dawn-7495'
 primary_region = 'fra'
 
 [build]
-  dockerfile = 'Dockerfile'
+  dockerfile = "Dockerfile"
   [build.args]
     NODE_ENV = "production"
 
