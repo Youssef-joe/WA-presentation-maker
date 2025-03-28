@@ -1,5 +1,5 @@
 const express = require("express");
-const { Client, LocalAuth } = require("whatsapp-web.js");
+const { Client } = require("whatsapp-web.js");
 const qrcode = require("qrcode-terminal");
 const { createClient } = require("@supabase/supabase-js");
 const { google } = require("googleapis");
@@ -103,28 +103,8 @@ const userStates = {};
 // Initialize WhatsApp client
 const client = new Client({
   puppeteer: {
-    args: [
-      "--no-sandbox",
-      "--disable-setuid-sandbox",
-      "--disable-dev-shm-usage",
-      "--disable-accelerated-2d-canvas",
-      "--no-first-run",
-      "--no-zygote",
-      "--single-process",
-      "--disable-gpu",
-    ],
-    headless: true,
-    timeout: 60000, // Increase timeout to 60 seconds
+    args: ["--no-sandbox", "--disable-setuid-sandbox"],
   },
-  authStrategy: new LocalAuth({
-    clientId: "wa-presentation-maker",
-    dataPath: "./.wwebjs_auth",
-  }),
-  webVersionCache: {
-    type: "remote",
-    remotePath: "./.wwebjs_cache",
-  },
-  webVersion: "2.3000.1021312349",
 });
 
 client.on("qr", (qr) => {
@@ -135,38 +115,14 @@ client.on("ready", () => {
   console.log("WhatsApp Client is ready!");
 });
 
-// Add enhanced disconnection and reconnection handling
+// Add disconnection and reconnection handling
 client.on("disconnected", (reason) => {
   console.log(`WhatsApp client disconnected: ${reason}`);
   console.log("Attempting to reconnect...");
   // Wait a bit before reconnecting to avoid immediate reconnection attempts
   setTimeout(() => {
-    try {
-      client.initialize();
-      console.log("Reconnection attempt initiated");
-    } catch (error) {
-      console.error("Failed to reconnect:", error);
-      // Try again with exponential backoff
-      setTimeout(() => {
-        console.log("Attempting to reconnect again...");
-        client.initialize();
-      }, 15000);
-    }
-  }, 5000);
-});
-
-// Add authentication failure handling
-client.on("auth_failure", (msg) => {
-  console.error("Authentication failed:", msg);
-  console.log("Attempting to re-authenticate...");
-  setTimeout(() => {
     client.initialize();
-  }, 10000);
-});
-
-// Add loading screen handling
-client.on("loading_screen", (percent, message) => {
-  console.log(`Loading screen: ${percent}% - ${message}`);
+  }, 5000);
 });
 
 // Helper function to check if a message is a greeting
