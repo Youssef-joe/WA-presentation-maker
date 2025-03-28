@@ -42,10 +42,7 @@ const auth = {
 // Initialize Google Slides API
 const slides = google.slides({ version: "v1", auth: oauth2Client });
 
-// Import presentation model
-const { savePresentation } = require('../models/presentationModel');
-
-async function createPresentation(content, userId = 'unknown') {
+async function createPresentation(content) {
   try {
     // Parse content to extract presentation details
     const presentationData = parseContent(content);
@@ -62,24 +59,7 @@ async function createPresentation(content, userId = 'unknown') {
     // Add slides based on the content
     await addSlides(presentation.data.presentationId, presentationData);
 
-    const presentationUrl = `https://docs.google.com/presentation/d/${presentation.data.presentationId}`;
-    
-    // Save presentation to database
-    try {
-      await savePresentation(
-        userId,
-        presentationData.title, // This won't be used in the updated model
-        content,
-        presentation.data.presentationId, // This won't be used in the updated model
-        presentationUrl
-      );
-      console.log('Presentation saved to database');
-    } catch (dbError) {
-      console.error('Error saving to database:', dbError);
-      // Continue even if database save fails
-    }
-
-    return presentationUrl;
+    return `https://docs.google.com/presentation/d/${presentation.data.presentationId}`;
   } catch (error) {
     console.error("Error creating presentation:", error);
     throw new Error("Failed to create presentation.");
@@ -127,7 +107,7 @@ async function addSlides(presentationId, presentationData) {
             insertText: {
               objectId: titleElement.objectId,
               insertionIndex: 0,
-              text: presentationData.slides[index].title,
+              text: `Slide ${index + 1}`,
             },
           });
 
@@ -156,32 +136,11 @@ async function addSlides(presentationId, presentationData) {
 }
 
 function parseContent(content) {
-  // Check if content is an object (with userId) or a string
-  const messageText = typeof content === 'object' ? content.toString() : content;
-  
   // Parse the message content to extract presentation structure
-  const lines = messageText.split("\n").filter(line => line.trim() !== "");
-  
-  // Extract title from first line
-  const title = lines[0].replace("/presentation", "").trim();
-  
-  // Process remaining lines as slides
-  const slides = [];
-  for (let i = 1; i < lines.length; i++) {
-    const slideContent = lines[i].trim();
-    if (slideContent) {
-      // Create a title from the first few words of the content
-      const slideTitle = slideContent.split(" ").slice(0, 3).join(" ") + "...";
-      slides.push({
-        title: slideTitle,
-        content: slideContent
-      });
-    }
-  }
-  
+  const lines = content.split("\n");
   return {
-    title: title || "Untitled Presentation",
-    slides: slides.length > 0 ? slides : [{ title: "Slide 1", content: "No content provided" }],
+    title: lines[0].replace("/presentation", "").trim(),
+    slides: lines.slice(1).map(line => ({ content: line.trim() })),
   };
 }
 
