@@ -3,7 +3,7 @@ app = "wa-presentation-maker"
 primary_region = "fra"
 
 [build]
-  builder = "heroku/builder:22"
+  dockerfile = "Dockerfile"
 
 [env]
   PORT = "8080"
